@@ -46,20 +46,33 @@ func runProcess(cmd *cobra.Command, args []string) error {
 func createDirectoriesAndFiles(data map[string]interface{}, baseDir string) error {
     for key, value := range data {
         // Replace slashes in key with file path separators to handle nested directories.
-        dirPath := filepath.Join(baseDir, strings.ReplaceAll(key, "/", string(os.PathSeparator)))
-        if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
-            return fmt.Errorf("failed to create directory %s: %w", dirPath, err)
-        }
+        sanitizedKey := strings.ReplaceAll(key, "/", string(os.PathSeparator))
+        dirPath := filepath.Join(baseDir, sanitizedKey)
 
         // Check if value is a nested map.
         if nestedMap, ok := value.(map[string]interface{}); ok {
-            // Recursively create directories and files for nested maps.
-            if err := createDirectoriesAndFiles(nestedMap, dirPath); err != nil {
-                return err
+            // If it's a nested map with a simple structure, create a JSON file instead.
+            if isSimpleMap(nestedMap) {
+                filePath := fmt.Sprintf("%s.json", dirPath)
+                content, err := json.MarshalIndent(nestedMap, "", "    ")
+                if err != nil {
+                    return fmt.Errorf("failed to marshal content for %s: %w", filePath, err)
+                }
+                if err := ioutil.WriteFile(filePath, content, 0644); err != nil {
+                    return fmt.Errorf("failed to write file %s: %w", filePath, err)
+                }
+            } else {
+                // Otherwise, create directories and process nested maps.
+                if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
+                    return fmt.Errorf("failed to create directory %s: %w", dirPath, err)
+                }
+                if err := createDirectoriesAndFiles(nestedMap, dirPath); err != nil {
+                    return err
+                }
             }
         } else {
-            // Write the current value as a JSON file if it's not a map.
-            filePath := filepath.Join(baseDir, fmt.Sprintf("%s.json", key))
+            // Write the current value as a JSON file.
+            filePath := fmt.Sprintf("%s.json", dirPath)
             content, err := json.MarshalIndent(value, "", "    ")
             if err != nil {
                 return fmt.Errorf("failed to marshal content for %s: %w", filePath, err)
@@ -71,6 +84,17 @@ func createDirectoriesAndFiles(data map[string]interface{}, baseDir string) erro
     }
     return nil
 }
+
+// isSimpleMap checks if a map is a simple map (i.e., it contains no nested maps).
+func isSimpleMap(data map[string]interface{}) bool {
+    for _, value := range data {
+        if _, ok := value.(map[string]interface{}); ok {
+            return false
+        }
+    }
+    return true
+}
+
 
 // loadJSON loads the JSON content from a file.
 func loadJSON(filePath string) (map[string]interface{}, error) {

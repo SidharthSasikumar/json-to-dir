@@ -1,0 +1,11 @@
+{
+    "mainDirectory": {
+        "firstJSonFile": {
+            "Key1": "24310412",
+            "Key2": "testdata"
+        },
+        "secondJSonFile": {
+            "MinAllowedVersion": "24211"
+        }
+    }
+}
