@@ -1,6 +1,6 @@
 module json-cli
 
-go 1.23.1
+go 1.25.0
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
